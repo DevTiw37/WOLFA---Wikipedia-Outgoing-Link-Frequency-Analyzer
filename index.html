@@ -156,6 +156,23 @@
         <!-- Results Section -->
         <div id="resultsSection" class="hidden space-y-6">
 
+            <!-- Dynamic Breadcrumbs History Trail -->
+            <div id="breadcrumbsContainer" class="hidden"></div>
+
+            <!-- Recursive Crawl Progress Banner -->
+            <div id="crawlProgressBanner" class="hidden bg-blue-50/90 border border-blue-200 rounded-2xl p-4 shadow-sm space-y-2">
+                <div class="flex items-center justify-between text-xs font-semibold text-blue-900">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-notch animate-spin text-blue-600"></i>
+                        <span id="crawlProgressText">Recursively analyzing cluster sub-articles...</span>
+                    </div>
+                    <span class="text-blue-600 font-bold uppercase tracking-wider text-[10px]">Deep Crawl in Progress</span>
+                </div>
+                <div class="w-full bg-blue-200/70 rounded-full h-2 overflow-hidden">
+                    <div id="crawlProgressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 10%"></div>
+                </div>
+            </div>
+
             <!-- Summary Stats Header -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between">
@@ -206,23 +223,41 @@
                 
                 <!-- Tab Controls Bar -->
                 <div class="border-b border-slate-200 px-6 pt-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
-                    <div class="flex items-center space-x-6">
-                        <button id="tabBtnTable" class="tab-btn pb-3 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 flex items-center space-x-2">
+                    <div class="flex items-center space-x-6 overflow-x-auto custom-scrollbar">
+                        <button id="tabBtnTable" class="tab-btn pb-3 text-sm font-semibold text-blue-600 border-b-2 border-blue-600 flex items-center space-x-2 shrink-0">
                             <i class="fa-solid fa-list-ol"></i>
                             <span>Ranked Links</span>
                         </button>
-                        <button id="tabBtnChart" class="tab-btn pb-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-2">
+                        <button id="tabBtnChart" class="tab-btn pb-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-2 shrink-0">
                             <i class="fa-solid fa-chart-column"></i>
                             <span>Frequency Chart</span>
                         </button>
-                        <button id="tabBtnCloud" class="tab-btn pb-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-2">
+                        <button id="tabBtnCloud" class="tab-btn pb-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-2 shrink-0">
                             <i class="fa-solid fa-cloud"></i>
                             <span>Link Cloud</span>
                         </button>
+                        <button id="tabBtnNetwork" class="tab-btn pb-3 text-sm font-semibold text-slate-500 hover:text-slate-700 border-b-2 border-transparent flex items-center space-x-2 shrink-0">
+                            <i class="fa-solid fa-circle-nodes"></i>
+                            <span>Deep Crawl & Network</span>
+                        </button>
                     </div>
 
-                    <!-- Export Buttons -->
-                    <div class="pb-3 flex items-center space-x-2">
+                    <!-- Action & Export Toolbar -->
+                    <div class="pb-3 flex items-center space-x-2 flex-wrap gap-y-2">
+                        <!-- Batch Deep Crawl Launcher -->
+                        <div class="flex items-center space-x-1.5 bg-indigo-50/80 border border-indigo-200 px-2.5 py-1 rounded-lg">
+                            <span class="text-[11px] font-semibold text-indigo-950 hidden sm:inline"><i class="fa-solid fa-sitemap mr-1 text-indigo-600"></i>Deep Crawl:</span>
+                            <select id="deepCrawlTopN" class="bg-white border border-indigo-200 rounded-md text-[11px] py-0.5 px-1 font-semibold text-indigo-900">
+                                <option value="5">Top 5 Links</option>
+                                <option value="10" selected>Top 10 Links</option>
+                                <option value="15">Top 15 Links</option>
+                            </select>
+                            <button type="button" id="startDeepCrawlBtn" class="px-2.5 py-0.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-md text-[11px] transition-colors flex items-center space-x-1 cursor-pointer shadow-xs">
+                                <i class="fa-solid fa-bolt text-[9px] text-amber-300"></i>
+                                <span>Run</span>
+                            </button>
+                        </div>
+
                         <button id="exportCsvBtn" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold shadow-sm flex items-center space-x-1.5 transition-colors">
                             <i class="fa-solid fa-file-csv text-emerald-600"></i>
                             <span>Export CSV</span>
@@ -273,7 +308,7 @@
                                     </th>
                                     <th class="py-3 px-4 w-48 hidden md:table-cell">Distribution Share</th>
                                     <th class="py-3 px-4 hidden lg:table-cell">Anchor Text Variations</th>
-                                    <th class="py-3 px-4 w-28 text-right">Actions</th>
+                                    <th class="py-3 px-4 w-36 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="linkTableBody" class="divide-y divide-slate-100 bg-white">
@@ -301,6 +336,13 @@
                     </div>
                 </div>
 
+                <!-- Tab 4: Deep Crawl & Network View -->
+                <div id="tabContentNetwork" class="hidden p-6 space-y-6">
+                    <div id="networkContentContainer">
+                        <!-- Dynamic Network data inserted here -->
+                    </div>
+                </div>
+
             </div>
 
         </div>
@@ -316,7 +358,7 @@
                         <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Target Link Preview</span>
                         <h3 id="modalTitle" class="text-xl font-bold text-slate-900 mt-0.5">Article Title</h3>
                     </div>
-                    <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 p-1">
+                    <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
@@ -334,14 +376,19 @@
                 </div>
             </div>
 
-            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-between">
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
                 <span id="modalFreqBadge" class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
                     0 mentions in article
                 </span>
-                <a id="modalWikiUrl" href="#" target="_blank" rel="noopener" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors">
-                    <span>Open in Wikipedia</span>
-                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                </a>
+                <div class="flex items-center space-x-2">
+                    <button type="button" id="modalDrillBtn" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs">
+                        <i class="fa-solid fa-bolt text-amber-300 text-[11px]"></i>
+                        <span>Analyze Outgoing Links</span>
+                    </button>
+                    <a id="modalWikiUrl" href="#" target="_blank" rel="noopener" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors" title="Open in Wikipedia">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
             </div>
         </div>
     </div>

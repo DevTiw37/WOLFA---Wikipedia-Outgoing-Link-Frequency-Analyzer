@@ -89,13 +89,21 @@ Then open your browser to: [http://localhost:3000](http://localhost:3000)
 ## 🎯 Key Features Included
 
 1. **Flexible Input Recognition**: Works with full URL addresses (e.g. `https://es.wikipedia.org/wiki/Sol`) or raw subject titles (e.g. `Solar System`).
-2. **Deep Filter Controls**: Instantly toggles the inclusion of heavy side-elements (Infoboxes, Sidebars, Reference footers, and Navboxes) to keep analytics highly accurate.
-3. **Advanced Tabbed Views**:
-   * **Ranked Table**: Offers lightning-fast searching, minimum link frequency slider filters, and column sorting.
+2. **Interactive 1-Click Recursive Drill-Down (`⚡`)**:
+   - Drill into any outgoing link directly from the table row, link cloud, or preview modal without retyping search queries.
+   - Built-in **Breadcrumb Trail & History Navigation** (`[Root] > [Child 1] > [Child 2]`) to effortlessly jump back and forth with zero latency.
+   - Smart in-memory LRU caching to eliminate redundant network roundtrips.
+3. **Automated 2-Level Batch Deep Crawl & Network Analysis**:
+   - Recursively crawls top $N$ outgoing links in batch with live progress tracking and polite concurrency throttling.
+   - Aggregates **Second-Order Central Topic Hubs** to identify cross-referencing connections across entire subject clusters.
+4. **Deep Filter Controls**: Instantly toggles the inclusion of heavy side-elements (Infoboxes, Sidebars, Reference footers, and Navboxes) to keep analytics highly accurate.
+5. **Advanced Tabbed Views**:
+   * **Ranked Links Table**: Fast search, minimum link frequency slider filters, column sorting, and quick-drill buttons.
    * **Frequency Bar Chart**: Graphing top-20 target links by instance count.
    * **Weighted Word Cloud**: Visually renders link gravity with responsive click behavior.
-4. **Interactive Summary Previews**: Clicking on any target launches an overlay modal querying the Wikipedia REST Summary API, loading thumbnail graphics and brief summaries before the user decides to open the article.
-5. **One-Click Exports**: Download link frequency tables directly as `.csv` or `.json`, or copy a beautifully formatted Markdown list to the clipboard.
+   * **Deep Crawl & Network**: Cluster cards, 2nd-order hub distribution, and cross-cluster density metrics.
+6. **Interactive Summary Previews**: Clicking on any target launches an overlay modal querying the Wikipedia REST Summary API, loading thumbnail graphics, extracts, and a direct `Analyze Outgoing Links` drill-down button.
+7. **One-Click Exports**: Download link frequency tables and cluster network metadata directly as `.csv` or `.json`, or copy a formatted Markdown list to clipboard.
 
 ---
 
