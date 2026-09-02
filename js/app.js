@@ -117,6 +117,11 @@
             if (ui.renderBreadcrumbs) {
                 ui.renderBreadcrumbs(analysisHistory, currentHistoryIndex, navigateToHistoryIndex);
             }
+
+            // Update Article Summary Preview for the active search / drill query
+            if (ui.renderArticleSummary) {
+                ui.renderArticleSummary(data.title, data.lang);
+            }
         }
 
         /**

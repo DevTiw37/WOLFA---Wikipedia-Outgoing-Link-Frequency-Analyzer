@@ -44,6 +44,17 @@
                 crawlProgressText: document.getElementById('crawlProgressText'),
                 crawlProgressBar: document.getElementById('crawlProgressBar'),
                 previewModal: document.getElementById('previewModal'),
+                articleSummaryCard: document.getElementById('articleSummaryCard'),
+                articleSummaryTitle: document.getElementById('articleSummaryTitle'),
+                articleSummaryLang: document.getElementById('articleSummaryLang'),
+                articleSummaryDescription: document.getElementById('articleSummaryDescription'),
+                articleSummaryWikiLink: document.getElementById('articleSummaryWikiLink'),
+                articleSummaryLoading: document.getElementById('articleSummaryLoading'),
+                articleSummaryBody: document.getElementById('articleSummaryBody'),
+                articleSummaryExtract: document.getElementById('articleSummaryExtract'),
+                articleSummaryToggleBtn: document.getElementById('articleSummaryToggleBtn'),
+                articleSummaryImg: document.getElementById('articleSummaryImg'),
+                articleSummaryImgContainer: document.getElementById('articleSummaryImgContainer'),
                 modalTitle: document.getElementById('modalTitle'),
                 modalFreqBadge: document.getElementById('modalFreqBadge'),
                 modalWikiUrl: document.getElementById('modalWikiUrl'),
@@ -792,6 +803,108 @@
         if (el.modalImgContainer) el.modalImgContainer.classList.add('hidden');
     }
 
+    // In-memory cache for page summaries
+    const summaryCache = new Map();
+
+    /**
+     * Fetches and renders the Wikipedia Article Summary Preview of the current search/drill query
+     * directly on the results page.
+     * @param {string} title - Canonical or clean title of the active article
+     * @param {string} lang - Language code
+     */
+    async function renderArticleSummary(title, lang = 'en') {
+        const el = getElements();
+        if (!el.articleSummaryCard) return;
+
+        const cleanTitle = (title || '').trim();
+        if (!cleanTitle) return;
+
+        // Populate base headers immediately
+        if (el.articleSummaryTitle) el.articleSummaryTitle.textContent = cleanTitle;
+        if (el.articleSummaryLang) el.articleSummaryLang.textContent = (lang || 'en').toUpperCase();
+        if (el.articleSummaryWikiLink) {
+            el.articleSummaryWikiLink.href = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(cleanTitle.replace(/ /g, '_'))}`;
+        }
+
+        // Reset UI states
+        if (el.articleSummaryDescription) {
+            el.articleSummaryDescription.textContent = '';
+            el.articleSummaryDescription.classList.add('hidden');
+        }
+        if (el.articleSummaryImgContainer) el.articleSummaryImgContainer.classList.add('hidden');
+        if (el.articleSummaryImg) el.articleSummaryImg.src = '';
+        if (el.articleSummaryLoading) el.articleSummaryLoading.classList.remove('hidden');
+        if (el.articleSummaryExtract) {
+            el.articleSummaryExtract.textContent = '';
+            el.articleSummaryExtract.classList.add('line-clamp-3');
+        }
+        if (el.articleSummaryToggleBtn) {
+            el.articleSummaryToggleBtn.classList.add('hidden');
+            el.articleSummaryToggleBtn.innerHTML = `<span>Show more</span> <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>`;
+        }
+
+        const cacheKey = `${lang}:${cleanTitle.toLowerCase()}`;
+        let summaryData = summaryCache.get(cacheKey);
+
+        if (!summaryData) {
+            try {
+                const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(cleanTitle.replace(/ /g, '_'))}`);
+                if (res.ok) {
+                    summaryData = await res.json();
+                    summaryCache.set(cacheKey, summaryData);
+                } else {
+                    summaryData = {
+                        title: cleanTitle,
+                        extract: 'No summary extract available from Wikipedia for this topic.',
+                        description: ''
+                    };
+                }
+            } catch (err) {
+                summaryData = {
+                    title: cleanTitle,
+                    extract: 'Unable to load article summary preview at this time.',
+                    description: ''
+                };
+            }
+        }
+
+        if (el.articleSummaryLoading) el.articleSummaryLoading.classList.add('hidden');
+
+        // Apply Description
+        if (summaryData.description && el.articleSummaryDescription) {
+            el.articleSummaryDescription.textContent = summaryData.description;
+            el.articleSummaryDescription.classList.remove('hidden');
+        }
+
+        // Apply Extract
+        const extractText = summaryData.extract || summaryData.description || 'No extract summary available for this topic.';
+        if (el.articleSummaryExtract) {
+            el.articleSummaryExtract.textContent = extractText;
+        }
+
+        // Apply Thumbnail Image
+        if (summaryData.thumbnail && summaryData.thumbnail.source && el.articleSummaryImg && el.articleSummaryImgContainer) {
+            el.articleSummaryImg.src = summaryData.thumbnail.source;
+            el.articleSummaryImgContainer.classList.remove('hidden');
+        }
+
+        // Show Expand/Collapse toggle if text is long enough (> 160 characters)
+        if (extractText.length > 160 && el.articleSummaryToggleBtn && el.articleSummaryExtract) {
+            el.articleSummaryToggleBtn.classList.remove('hidden');
+            el.articleSummaryToggleBtn.onclick = (e) => {
+                e.preventDefault();
+                const isClamped = el.articleSummaryExtract.classList.contains('line-clamp-3');
+                if (isClamped) {
+                    el.articleSummaryExtract.classList.remove('line-clamp-3');
+                    el.articleSummaryToggleBtn.innerHTML = `<span>Show less</span> <i class="fa-solid fa-chevron-up text-[9px] ml-0.5"></i>`;
+                } else {
+                    el.articleSummaryExtract.classList.add('line-clamp-3');
+                    el.articleSummaryToggleBtn.innerHTML = `<span>Show more</span> <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>`;
+                }
+            };
+        }
+    }
+
     const ui = {
         showLoading: showLoading,
         showError: showError,
@@ -799,6 +912,7 @@
         showCrawlProgress: showCrawlProgress,
         switchTab: switchTab,
         renderBreadcrumbs: renderBreadcrumbs,
+        renderArticleSummary: renderArticleSummary,
         renderDashboardStats: renderDashboardStats,
         renderTableBody: renderTableBody,
         renderChart: renderChart,
@@ -815,5 +929,6 @@
         module.exports = ui;
     }
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
 
