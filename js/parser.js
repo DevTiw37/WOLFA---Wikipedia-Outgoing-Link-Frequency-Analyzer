@@ -203,6 +203,13 @@
         analysisCache.set(cacheKey, result);
         analysisCache.set(canonicalKey, result);
 
+        // Sync to persistent storage cache
+        try {
+            if (global.WikiApp && global.WikiApp.utils && global.WikiApp.utils.persistArticleToCache) {
+                global.WikiApp.utils.persistArticleToCache(canonicalKey, result);
+            }
+        } catch (e) {}
+
         return result;
     }
 
@@ -389,10 +396,38 @@
         analysisCache.clear();
     }
 
+    /**
+     * Seeds the in-memory cache with multiple article entries (used during session restore/import).
+     * @param {Array<Object>} articles 
+     */
+    function seedCache(articles) {
+        if (!Array.isArray(articles)) return;
+        articles.forEach(item => {
+            if (!item || !item.title) return;
+            const lang = item.lang || 'en';
+            const key1 = `${lang}:${item.title.toLowerCase()}:true:true`;
+            const key2 = `${lang}:${item.title.toLowerCase()}:false:false`;
+            analysisCache.set(key1, item);
+            analysisCache.set(key2, item);
+        });
+    }
+
+    // Pre-populate memory cache from localStorage if available
+    try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+            const raw = window.localStorage.getItem('wolfa_article_cache_v1');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                Object.keys(parsed).forEach(k => analysisCache.set(k, parsed[k]));
+            }
+        }
+    } catch (e) {}
+
     const parser = {
         analyzeWikipediaLinks: analyzeWikipediaLinks,
         analyzeRecursiveCluster: analyzeRecursiveCluster,
         clearCache: clearCache,
+        seedCache: seedCache,
         analysisCache: analysisCache
     };
 

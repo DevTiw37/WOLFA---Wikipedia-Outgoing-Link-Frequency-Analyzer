@@ -181,6 +181,9 @@
                 if (resultsSection) resultsSection.classList.remove('hidden');
                 ui.switchTab('table');
 
+                // Auto-save active session to local storage history
+                saveActiveSessionToHistory();
+
                 if (utils.showToast) {
                     utils.showToast(`Drilled into: ${data.title}`);
                 }
@@ -215,8 +218,86 @@
             renderDashboard(currentAnalysisData);
             ui.switchTab('table');
 
+            // Auto-save updated position in history
+            saveActiveSessionToHistory();
+
             if (utils.showToast) {
                 utils.showToast(`Navigated back to: ${currentAnalysisData.title}`);
+            }
+        }
+
+        /**
+         * Auto-saves the current active analysis session and drill trail into persistent local storage.
+         */
+        function saveActiveSessionToHistory() {
+            if (!currentAnalysisData) return;
+            const utils = getUtils();
+            const ui = getUI();
+
+            const rootTitle = analysisHistory[0]?.title || currentAnalysisData.title;
+            const sessionPayload = {
+                title: rootTitle,
+                lang: currentAnalysisData.lang || 'en',
+                trail: analysisHistory.map(h => h.title),
+                history: analysisHistory,
+                currentIndex: currentHistoryIndex >= 0 ? currentHistoryIndex : 0,
+                totalUnique: currentAnalysisData.totalUnique || 0,
+                totalOccurrences: currentAnalysisData.totalOccurrences || 0,
+                clusterNetwork: currentClusterData || null
+            };
+
+            if (utils.saveSessionToHistory) {
+                utils.saveSessionToHistory(sessionPayload);
+            }
+
+            if (ui.updateHistoryBadge && utils.getSavedSessions) {
+                ui.updateHistoryBadge(utils.getSavedSessions().length);
+            }
+        }
+
+        /**
+         * Restores a full analysis session (from history or file import).
+         * @param {Object} session 
+         */
+        function restoreSession(session) {
+            if (!session) return;
+            const parser = getParser();
+            const ui = getUI();
+            const utils = getUtils();
+
+            if (parser.seedCache && session.history) {
+                parser.seedCache(session.history);
+            }
+
+            analysisHistory = Array.isArray(session.history) && session.history.length > 0 ? session.history : [];
+            currentHistoryIndex = typeof session.currentIndex === 'number' && session.currentIndex < analysisHistory.length
+                ? session.currentIndex
+                : Math.max(0, analysisHistory.length - 1);
+
+            currentAnalysisData = analysisHistory[currentHistoryIndex] || null;
+            currentClusterData = session.clusterNetwork || null;
+
+            if (currentAnalysisData) {
+                if (wikiInput) {
+                    wikiInput.value = currentAnalysisData.title;
+                    if (clearBtn) clearBtn.classList.remove('hidden');
+                }
+                if (langSelect && currentAnalysisData.lang) {
+                    const opt = langSelect.querySelector(`option[value="${currentAnalysisData.lang}"]`);
+                    if (opt) langSelect.value = currentAnalysisData.lang;
+                }
+
+                renderDashboard(currentAnalysisData);
+                if (resultsSection) resultsSection.classList.remove('hidden');
+                ui.switchTab('table');
+
+                // Save active state to top of history
+                saveActiveSessionToHistory();
+            }
+
+            if (ui.closeHistoryModal) ui.closeHistoryModal();
+            if (utils.showToast) {
+                utils.showToast(`Restored session: ${session.title || currentAnalysisData?.title}`);
             }
         }
 
@@ -262,6 +343,9 @@
                     ui.renderNetworkView(clusterData, drillDown, handlePreviewTrigger);
                 }
                 if (ui.switchTab) ui.switchTab('network');
+
+                // Auto-save updated cluster network to history
+                saveActiveSessionToHistory();
 
                 if (utils.showToast) {
                     utils.showToast(`Deep crawl completed for ${clusterData.crawledCount} sub-articles!`);
@@ -428,10 +512,123 @@
             });
         }
 
-        // Keyboard shortcut: Escape to close modal
+        // --- History Modal Bindings ---
+        const historyModal = document.getElementById('historyModal');
+        const historyModalBtn = document.getElementById('historyModalBtn');
+        const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
+        const importSessionBtn = document.getElementById('importSessionBtn');
+        const sessionFileInput = document.getElementById('sessionFileInput');
+        const exportSessionBtn = document.getElementById('exportSessionBtn');
+
+        function openHistory() {
+            const utils = getUtils();
+            const ui = getUI();
+            const sessions = utils.getSavedSessions ? utils.getSavedSessions() : [];
+
+            ui.openHistoryModal?.(
+                sessions,
+                // onRestore
+                (session) => restoreSession(session),
+                // onExport
+                (session) => {
+                    utils.exportSessionAsJsonFile?.(session);
+                    utils.showToast?.(`Exported session: ${session.title}`);
+                },
+                // onDelete
+                (sessionId) => {
+                    utils.deleteSessionFromHistory?.(sessionId);
+                    const updated = utils.getSavedSessions ? utils.getSavedSessions() : [];
+                    ui.renderHistoryList?.(updated, restoreSession, (s) => utils.exportSessionAsJsonFile?.(s), (id) => onDelete(id));
+                    ui.updateHistoryBadge?.(updated.length);
+                    utils.showToast?.('Session deleted from history.');
+                },
+                // onClearAll
+                () => {
+                    utils.clearAllSessions?.();
+                    ui.renderHistoryList?.([], restoreSession, null, null);
+                    ui.updateHistoryBadge?.(0);
+                    utils.showToast?.('Cleared all history.');
+                },
+                // onImportClick
+                () => {
+                    if (sessionFileInput) sessionFileInput.click();
+                }
+            );
+        }
+
+        if (historyModalBtn) {
+            historyModalBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openHistory();
+            });
+        }
+
+        if (closeHistoryModalBtn) {
+            closeHistoryModalBtn.addEventListener('click', () => getUI().closeHistoryModal?.());
+        }
+
+        if (historyModal) {
+            historyModal.addEventListener('click', (e) => {
+                if (e.target === historyModal) getUI().closeHistoryModal?.();
+            });
+        }
+
+        // Save active session file trigger
+        if (exportSessionBtn) {
+            exportSessionBtn.addEventListener('click', () => {
+                if (!currentAnalysisData) return;
+                const utils = getUtils();
+                const rootTitle = analysisHistory[0]?.title || currentAnalysisData.title;
+                const payload = {
+                    title: rootTitle,
+                    lang: currentAnalysisData.lang || 'en',
+                    trail: analysisHistory.map(h => h.title),
+                    history: analysisHistory,
+                    currentIndex: currentHistoryIndex >= 0 ? currentHistoryIndex : 0,
+                    clusterNetwork: currentClusterData || null
+                };
+                if (utils.exportSessionAsJsonFile) {
+                    utils.exportSessionAsJsonFile(payload);
+                    if (utils.showToast) utils.showToast('Session exported successfully!');
+                }
+            });
+        }
+
+        // Import session file triggers
+        if (importSessionBtn) {
+            importSessionBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (sessionFileInput) sessionFileInput.click();
+            });
+        }
+
+        if (sessionFileInput) {
+            sessionFileInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const utils = getUtils();
+                    const ui = getUI();
+                    try {
+                        const parsedSession = utils.parseSessionJson(event.target.result);
+                        restoreSession(parsedSession);
+                    } catch (err) {
+                        if (ui.showError) ui.showError(err.message || 'Failed to import session file.');
+                    } finally {
+                        sessionFileInput.value = '';
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        // Keyboard shortcut: Escape to close modals
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 getUI().closeLinkPreview?.();
+                getUI().closeHistoryModal?.();
             }
         });
 
@@ -485,6 +682,16 @@
                 if (utils.showToast) utils.showToast('Copied formatted link list to clipboard!');
             });
         }
+
+        // Initialize history count badge from storage on load
+        try {
+            const utils = getUtils();
+            const ui = getUI();
+            if (utils.getSavedSessions && ui.updateHistoryBadge) {
+                const sessions = utils.getSavedSessions();
+                ui.updateHistoryBadge(sessions.length);
+            }
+        } catch (e) {}
     }
 
     // Auto-initialize when DOM is ready
@@ -497,5 +704,6 @@
     global.WikiApp = global.WikiApp || {};
     global.WikiApp.init = initApp;
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
 

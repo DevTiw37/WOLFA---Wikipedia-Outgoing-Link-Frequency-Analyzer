@@ -89,28 +89,27 @@ Then open your browser to: [http://localhost:3000](http://localhost:3000)
 ## 🎯 Key Features Included
 
 1. **Flexible Input Recognition**: Works with full URL addresses (e.g. `https://es.wikipedia.org/wiki/Sol`) or raw subject titles (e.g. `Solar System`).
-2. **Interactive 1-Click Recursive Drill-Down (`⚡`)**:
+2. **Article Summary Preview**: Immediate on-page preview card for the currently active article / drill query with thumbnail graphic, description, extract snippet, and direct Wikipedia link.
+3. **Interactive 1-Click Recursive Drill-Down (`⚡`)**:
    - Drill into any outgoing link directly from the table row, link cloud, or preview modal without retyping search queries.
    - Built-in **Breadcrumb Trail & History Navigation** (`[Root] > [Child 1] > [Child 2]`) to effortlessly jump back and forth with zero latency.
    - Smart in-memory LRU caching to eliminate redundant network roundtrips.
-3. **Automated 2-Level Batch Deep Crawl & Network Analysis**:
+4. **Persistent History & Auto-Saved Cache**:
+   - Every search and drill path is auto-saved directly to local storage.
+   - Reopen or refresh the page anytime and find all your drill paths saved in the interactive **History Manager**.
+   - One-click restore or delete for individual sessions, plus a full history purge option.
+5. **Local Session File Export & Import (`.json`)**:
+   - Export any active drill path and its entire exploration history as a standalone `.json` session file.
+   - Import saved session files on any machine to instantly restore your drill state, cache, and breadcrumbs.
+6. **Automated 2-Level Batch Deep Crawl & Network Analysis**:
    - Recursively crawls top $N$ outgoing links in batch with live progress tracking and polite concurrency throttling.
    - Aggregates **Second-Order Central Topic Hubs** to identify cross-referencing connections across entire subject clusters.
-4. **Deep Filter Controls**: Instantly toggles the inclusion of heavy side-elements (Infoboxes, Sidebars, Reference footers, and Navboxes) to keep analytics highly accurate.
-5. **Advanced Tabbed Views**:
+7. **Deep Filter Controls**: Instantly toggles the inclusion of heavy side-elements (Infoboxes, Sidebars, Reference footers, and Navboxes) to keep analytics highly accurate.
+8. **Advanced Tabbed Views**:
    * **Ranked Links Table**: Fast search, minimum link frequency slider filters, column sorting, and quick-drill buttons.
    * **Frequency Bar Chart**: Graphing top-20 target links by instance count.
    * **Weighted Word Cloud**: Visually renders link gravity with responsive click behavior.
    * **Deep Crawl & Network**: Cluster cards, 2nd-order hub distribution, and cross-cluster density metrics.
-6. **Interactive Summary Previews**: Clicking on any target launches an overlay modal querying the Wikipedia REST Summary API, loading thumbnail graphics, extracts, and a direct `Analyze Outgoing Links` drill-down button.
-7. **One-Click Exports**: Download link frequency tables and cluster network metadata directly as `.csv` or `.json`, or copy a formatted Markdown list to clipboard.
-
----
-
-## 📈 Future Scalability Path
-
-This organized structure enables easy integration paths for several next-generation features:
-
-* **Caching Layer**: Integrating `IndexedDB` or `localStorage` inside `js/parser.js` to cache past wiki scrapes, speeding up comparative analyses and reducing Wikipedia API hits.
-* **Crawl Path Analysis**: Enhancing `js/parser.js` to recursively query outbound links (2-levels deep) to map second-order connections and display graph network visualization nodes.
+9. **Interactive Summary Previews**: Clicking on any target launches an overlay modal querying the Wikipedia REST Summary API, loading thumbnail graphics, extracts, and a direct `Analyze Outgoing Links` drill-down button.
+10. **One-Click Exports**: Download link frequency tables and cluster network metadata directly as `.csv` or `.json`, or copy a formatted Markdown list to clipboard.
 * **Modern Tooling**: Easily convert to a TypeScript-compiled application or install bundling tooling like **Vite** or **Webpack** for production-ready asset compression and linting controls.

@@ -64,6 +64,17 @@
                 modalImg: document.getElementById('modalImg'),
                 modalImgContainer: document.getElementById('modalImgContainer'),
                 modalExtract: document.getElementById('modalExtract'),
+                historyModal: document.getElementById('historyModal'),
+                closeHistoryModalBtn: document.getElementById('closeHistoryModalBtn'),
+                historySearchInput: document.getElementById('historySearchInput'),
+                historyImportBtn: document.getElementById('historyImportBtn'),
+                clearAllHistoryBtn: document.getElementById('clearAllHistoryBtn'),
+                historyListContainer: document.getElementById('historyListContainer'),
+                historyCountBadge: document.getElementById('historyCountBadge'),
+                historyModalBtn: document.getElementById('historyModalBtn'),
+                importSessionBtn: document.getElementById('importSessionBtn'),
+                sessionFileInput: document.getElementById('sessionFileInput'),
+                exportSessionBtn: document.getElementById('exportSessionBtn'),
                 loadingState: document.getElementById('loadingState'),
                 resultsSection: document.getElementById('resultsSection'),
                 errorState: document.getElementById('errorState'),
@@ -905,6 +916,172 @@
         }
     }
 
+    /**
+     * Updates the history counter badge in the header.
+     * @param {number} count 
+     */
+    function updateHistoryBadge(count) {
+        const el = getElements();
+        if (!el.historyCountBadge) return;
+        if (count > 0) {
+            el.historyCountBadge.textContent = count > 99 ? '99+' : count;
+            el.historyCountBadge.classList.remove('hidden');
+        } else {
+            el.historyCountBadge.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Render the cards inside the History Modal
+     */
+    function renderHistoryList(sessions, onRestore, onExport, onDelete, query = '') {
+        const el = getElements();
+        const escape = getEscapeHtml();
+        const formatTimeAgo = (global.WikiApp?.utils?.formatTimeAgo) || (() => '');
+        if (!el.historyListContainer) return;
+
+        el.historyListContainer.innerHTML = '';
+
+        const cleanQuery = (query || '').toLowerCase().trim();
+        const filtered = (sessions || []).filter(s => {
+            if (!cleanQuery) return true;
+            const matchesTitle = (s.title || '').toLowerCase().includes(cleanQuery);
+            const matchesTrail = Array.isArray(s.trail) && s.trail.some(t => t.toLowerCase().includes(cleanQuery));
+            return matchesTitle || matchesTrail;
+        });
+
+        if (filtered.length === 0) {
+            el.historyListContainer.innerHTML = `
+                <div class="py-12 text-center text-slate-400 space-y-2">
+                    <i class="fa-solid fa-clock-rotate-left text-3xl text-slate-300"></i>
+                    <p class="text-xs font-medium text-slate-500">${cleanQuery ? 'No saved sessions matched your search.' : 'No saved analysis sessions in history yet.'}</p>
+                    <p class="text-[11px] text-slate-400 max-w-xs mx-auto">
+                        ${cleanQuery ? 'Try a different keyword.' : 'Searches and drill-down paths are auto-saved here so you can revisit them anytime.'}
+                    </p>
+                </div>
+            `;
+            return;
+        }
+
+        filtered.forEach(session => {
+            const card = document.createElement('div');
+            card.className = 'bg-white border border-slate-200/90 hover:border-blue-300 rounded-xl p-4 shadow-2xs transition-all space-y-3';
+
+            const trailArray = Array.isArray(session.trail) && session.trail.length > 0 ? session.trail : [session.title];
+            const timeAgo = formatTimeAgo(session.updatedAt);
+            const stepsCount = trailArray.length;
+
+            const trailPills = trailArray.map((t, idx) => {
+                const isLast = idx === trailArray.length - 1;
+                return `<span class="inline-flex items-center text-[10px] ${isLast ? 'font-bold text-blue-700 bg-blue-50 border border-blue-200/80' : 'text-slate-600 bg-slate-100'} px-2 py-0.5 rounded max-w-[140px] truncate" title="${escape(t)}">${escape(t)}</span>`;
+            }).join('<i class="fa-solid fa-chevron-right text-[8px] text-slate-300 mx-1"></i>');
+
+            card.innerHTML = `
+                <div class="flex items-start justify-between gap-2">
+                    <div class="space-y-1 min-w-0">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 text-[10px] font-bold uppercase">${escape(session.lang || 'en')}</span>
+                            <h4 class="font-bold text-slate-900 text-xs truncate" title="${escape(session.title)}">${escape(session.title)}</h4>
+                            <span class="text-[10px] text-slate-400 font-medium">${timeAgo ? '• ' + timeAgo : ''}</span>
+                        </div>
+                        <div class="flex items-center flex-wrap gap-1 pt-0.5">
+                            ${trailPills}
+                        </div>
+                    </div>
+                    <span class="shrink-0 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        ${stepsCount} step${stepsCount > 1 ? 's' : ''}
+                    </span>
+                </div>
+
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2 text-xs">
+                    <span class="text-[11px] text-slate-500">
+                        <span class="font-bold text-slate-700">${(session.totalUnique || 0).toLocaleString()}</span> unique links
+                    </span>
+                    <div class="flex items-center space-x-1.5">
+                        <button type="button" class="history-restore-btn px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-semibold rounded-lg text-xs transition-colors flex items-center space-x-1 cursor-pointer shadow-2xs" data-id="${escape(session.id)}">
+                            <i class="fa-solid fa-bolt text-[10px]"></i>
+                            <span>Restore</span>
+                        </button>
+                        <button type="button" class="history-export-btn px-2 py-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs transition-colors cursor-pointer" data-id="${escape(session.id)}" title="Save session as .json file">
+                            <i class="fa-solid fa-download text-xs"></i>
+                        </button>
+                        <button type="button" class="history-delete-btn px-2 py-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-xs transition-colors cursor-pointer" data-id="${escape(session.id)}" title="Delete from history">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Bind card actions
+            const restoreBtn = card.querySelector('.history-restore-btn');
+            if (restoreBtn) {
+                restoreBtn.addEventListener('click', () => {
+                    if (typeof onRestore === 'function') onRestore(session);
+                });
+            }
+
+            const exportBtn = card.querySelector('.history-export-btn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    if (typeof onExport === 'function') onExport(session);
+                });
+            }
+
+            const deleteBtn = card.querySelector('.history-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => {
+                    if (typeof onDelete === 'function') onDelete(session.id);
+                });
+            }
+
+            el.historyListContainer.appendChild(card);
+        });
+    }
+
+    /**
+     * Opens the History Modal
+     */
+    function openHistoryModal(sessions, onRestore, onExport, onDelete, onClearAll, onImportClick) {
+        const el = getElements();
+        if (!el.historyModal) return;
+
+        el.historyModal.classList.remove('hidden');
+        if (el.historySearchInput) el.historySearchInput.value = '';
+
+        renderHistoryList(sessions, onRestore, onExport, onDelete);
+
+        // Bind search input filter
+        if (el.historySearchInput) {
+            el.historySearchInput.oninput = () => {
+                renderHistoryList(sessions, onRestore, onExport, onDelete, el.historySearchInput.value);
+            };
+        }
+
+        // Bind clear all
+        if (el.clearAllHistoryBtn) {
+            el.clearAllHistoryBtn.onclick = () => {
+                if (confirm('Are you sure you want to delete all saved analysis history?')) {
+                    if (typeof onClearAll === 'function') onClearAll();
+                }
+            };
+        }
+
+        // Bind import inside history modal
+        if (el.historyImportBtn) {
+            el.historyImportBtn.onclick = () => {
+                if (typeof onImportClick === 'function') onImportClick();
+            };
+        }
+    }
+
+    /**
+     * Closes the History Modal
+     */
+    function closeHistoryModal() {
+        const el = getElements();
+        if (el.historyModal) el.historyModal.classList.add('hidden');
+    }
+
     const ui = {
         showLoading: showLoading,
         showError: showError,
@@ -919,7 +1096,11 @@
         renderLinkCloud: renderLinkCloud,
         renderNetworkView: renderNetworkView,
         openLinkPreview: openLinkPreview,
-        closeLinkPreview: closeLinkPreview
+        closeLinkPreview: closeLinkPreview,
+        updateHistoryBadge: updateHistoryBadge,
+        renderHistoryList: renderHistoryList,
+        openHistoryModal: openHistoryModal,
+        closeHistoryModal: closeHistoryModal
     };
 
     global.WikiApp = global.WikiApp || {};
@@ -929,6 +1110,7 @@
         module.exports = ui;
     }
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
 
 
