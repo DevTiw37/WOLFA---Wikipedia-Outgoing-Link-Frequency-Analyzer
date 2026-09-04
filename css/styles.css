@@ -28,3 +28,88 @@ body {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+
+.line-clamp-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Swipe Gesture Styles */
+#modalCard {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+#modalCard.is-dragging {
+    cursor: grabbing !important;
+    transition: none !important;
+}
+
+#modalCard.is-recovering {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease !important;
+}
+
+/* Slide Transition Animations for Preview Transitions */
+@keyframes slideInFromBottom {
+    0% {
+        opacity: 0.2;
+        transform: translate3d(0, 35px, 0) scale(0.97);
+    }
+    100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
+@keyframes slideInFromTop {
+    0% {
+        opacity: 0.2;
+        transform: translate3d(0, -35px, 0) scale(0.97);
+    }
+    100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
+.animate-slide-in-bottom {
+    animation: slideInFromBottom 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in-top {
+    animation: slideInFromTop 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Swipe Exit Animations */
+.swipe-exit-up {
+    transition: transform 0.28s ease-out, opacity 0.25s ease-out !important;
+    transform: translate3d(0, -120%, 0) scale(0.92) !important;
+    opacity: 0 !important;
+}
+
+.swipe-exit-down {
+    transition: transform 0.28s ease-out, opacity 0.25s ease-out !important;
+    transform: translate3d(0, 120%, 0) scale(0.92) !important;
+    opacity: 0 !important;
+}
+
+.swipe-exit-left {
+    transition: transform 0.28s ease-out, opacity 0.25s ease-out !important;
+    transform: translate3d(-120%, 0, 0) rotate(-12deg) scale(0.9) !important;
+    opacity: 0 !important;
+}
+
+.swipe-exit-right {
+    transition: transform 0.28s ease-out, opacity 0.25s ease-out !important;
+    transform: translate3d(120%, 0, 0) rotate(12deg) scale(0.9) !important;
+    opacity: 0 !important;
+}
+
+/* Directional feedback glow effect */
+.swipe-overlay {
+    backdrop-filter: blur(2px);
+}
+

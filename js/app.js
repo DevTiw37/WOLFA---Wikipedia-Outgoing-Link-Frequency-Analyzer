@@ -363,7 +363,7 @@
 
         /**
          * Action trigger when user clicks on eye/title of an outgoing link.
-         * Launches the preview Modal with quick-drill capability.
+         * Launches the preview Modal with swipe gestures and quick-drill capability.
          * @param {string} title 
          * @param {number} count 
          */
@@ -371,7 +371,25 @@
             if (!currentAnalysisData) return;
             const ui = getUI();
             if (ui.openLinkPreview) {
-                ui.openLinkPreview(title, count, currentAnalysisData.lang, drillDown);
+                // Prioritize active filtered link list, fallback to all analyzed links
+                const activeList = (filteredLinks && filteredLinks.length > 0)
+                    ? filteredLinks
+                    : (currentAnalysisData.links || []);
+
+                let index = activeList.findIndex(l => l.title.toLowerCase() === (title || '').toLowerCase());
+                if (index < 0) {
+                    const allLinks = currentAnalysisData.links || [];
+                    index = allLinks.findIndex(l => l.title.toLowerCase() === (title || '').toLowerCase());
+                    ui.openLinkPreview(title, count, currentAnalysisData.lang, drillDown, {
+                        links: allLinks,
+                        currentIndex: Math.max(0, index)
+                    });
+                } else {
+                    ui.openLinkPreview(title, count, currentAnalysisData.lang, drillDown, {
+                        links: activeList,
+                        currentIndex: index
+                    });
+                }
             }
         }
 

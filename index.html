@@ -404,16 +404,39 @@
 
     </main>
 
-    <!-- Wikipedia Target Preview Modal -->
-    <div id="previewModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
-            <div class="p-6 space-y-4">
-                <div class="flex items-start justify-between">
+    <!-- Wikipedia Target Preview Modal with Swipe Gestures -->
+    <div id="previewModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+        <div id="modalCard" class="relative bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all cursor-grab active:cursor-grabbing touch-none will-change-transform">
+            
+            <!-- Directional Swipe Feedback Overlays -->
+            <div id="swipeOverlayUp" class="swipe-overlay pointer-events-none absolute inset-x-0 top-0 py-3 bg-gradient-to-b from-blue-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
+                <i class="fa-solid fa-arrow-up text-lg animate-bounce"></i>
+                <span class="text-xs font-bold mt-1 tracking-wide">Next Frequently Used Link</span>
+            </div>
+            <div id="swipeOverlayDown" class="swipe-overlay pointer-events-none absolute inset-x-0 bottom-0 py-3 bg-gradient-to-t from-indigo-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
+                <span class="text-xs font-bold mb-1 tracking-wide">Previous Most Used Link</span>
+                <i class="fa-solid fa-arrow-down text-lg animate-bounce"></i>
+            </div>
+            <div id="swipeOverlayRight" class="swipe-overlay pointer-events-none absolute inset-y-0 right-0 px-5 bg-gradient-to-l from-emerald-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
+                <i class="fa-solid fa-arrow-up-right-from-square text-xl mb-1"></i>
+                <span class="text-xs font-bold tracking-wide">Open in Wikipedia</span>
+            </div>
+            <div id="swipeOverlayLeft" class="swipe-overlay pointer-events-none absolute inset-y-0 left-0 px-5 bg-gradient-to-r from-amber-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
+                <i class="fa-solid fa-bolt text-xl mb-1 text-amber-200"></i>
+                <span class="text-xs font-bold tracking-wide">Analyze Outgoing Links</span>
+            </div>
+
+            <!-- Modal Content Container -->
+            <div id="modalContentWrapper" class="p-6 space-y-4 transition-transform duration-200">
+                <div class="flex items-start justify-between gap-2">
                     <div>
-                        <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Target Link Preview</span>
-                        <h3 id="modalTitle" class="text-xl font-bold text-slate-900 mt-0.5">Article Title</h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Target Link Preview</span>
+                            <span id="modalRankBadge" class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px]">Rank #1 of 1</span>
+                        </div>
+                        <h3 id="modalTitle" class="text-xl font-bold text-slate-900 mt-1">Article Title</h3>
                     </div>
-                    <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+                    <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="Close (Esc)">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
@@ -425,24 +448,52 @@
 
                 <div id="modalBody" class="hidden space-y-3">
                     <div id="modalImgContainer" class="hidden">
-                        <img id="modalImg" class="w-full h-44 object-cover rounded-xl border border-slate-100" src="" alt="Thumbnail">
+                        <img id="modalImg" class="w-full h-44 object-cover rounded-xl border border-slate-100" src="" alt="Thumbnail" draggable="false">
                     </div>
-                    <p id="modalExtract" class="text-xs leading-relaxed text-slate-600">Article extract text...</p>
+                    <p id="modalExtract" class="text-xs leading-relaxed text-slate-600 line-clamp-4">Article extract text...</p>
                 </div>
             </div>
 
-            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
-                <span id="modalFreqBadge" class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
-                    0 mentions in article
-                </span>
-                <div class="flex items-center space-x-2">
-                    <button type="button" id="modalDrillBtn" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs">
-                        <i class="fa-solid fa-bolt text-amber-300 text-[11px]"></i>
-                        <span>Analyze Outgoing Links</span>
-                    </button>
-                    <a id="modalWikiUrl" href="#" target="_blank" rel="noopener" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors" title="Open in Wikipedia">
-                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </a>
+            <!-- Footer / Action Area -->
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 space-y-2.5">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span id="modalFreqBadge" class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
+                        0 mentions in article
+                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" id="modalDrillBtn" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs" title="Swipe Left or Click to analyze outgoing links">
+                            <i class="fa-solid fa-bolt text-amber-300 text-[11px]"></i>
+                            <span>Analyze Outgoing Links</span>
+                        </button>
+                        <a id="modalWikiUrl" href="#" target="_blank" rel="noopener" class="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-semibold text-xs rounded-lg flex items-center space-x-1.5 transition-colors cursor-pointer" title="Swipe Right or Click to open in Wikipedia">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Interactive Swipe Gesture Helper Bar -->
+                <div class="pt-2 border-t border-slate-200/70 flex items-center justify-between text-[11px] text-slate-500 flex-wrap gap-1.5">
+                    <span class="font-medium text-slate-400 flex items-center">
+                        <i class="fa-solid fa-hand-pointer mr-1.5 text-blue-500"></i> Swipe / Keys:
+                    </span>
+                    <div class="flex items-center space-x-1 sm:space-x-1.5 flex-wrap">
+                        <button type="button" id="btnGesturePrev" class="px-2 py-0.8 bg-white hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 font-medium transition-colors cursor-pointer inline-flex items-center space-x-1" title="Swipe Down or Press ↓ for previous most used link">
+                            <i class="fa-solid fa-arrow-down text-[10px] text-indigo-600"></i>
+                            <span>↓ Prev</span>
+                        </button>
+                        <button type="button" id="btnGestureNext" class="px-2 py-0.8 bg-white hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 font-medium transition-colors cursor-pointer inline-flex items-center space-x-1" title="Swipe Up or Press ↑ for next frequently used link">
+                            <i class="fa-solid fa-arrow-up text-[10px] text-blue-600"></i>
+                            <span>↑ Next</span>
+                        </button>
+                        <button type="button" id="btnGestureWiki" class="px-2 py-0.8 bg-white hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 font-medium transition-colors cursor-pointer inline-flex items-center space-x-1" title="Swipe Right or Press → to open in Wikipedia">
+                            <i class="fa-solid fa-arrow-right text-[10px] text-emerald-600"></i>
+                            <span>→ Wiki</span>
+                        </button>
+                        <button type="button" id="btnGestureAnalyze" class="px-2 py-0.8 bg-white hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 font-medium transition-colors cursor-pointer inline-flex items-center space-x-1" title="Swipe Left or Press ← to analyze ongoing link">
+                            <i class="fa-solid fa-arrow-left text-[10px] text-amber-600"></i>
+                            <span>← Analyze</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

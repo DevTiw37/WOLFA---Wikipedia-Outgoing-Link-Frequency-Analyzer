@@ -44,6 +44,17 @@
                 crawlProgressText: document.getElementById('crawlProgressText'),
                 crawlProgressBar: document.getElementById('crawlProgressBar'),
                 previewModal: document.getElementById('previewModal'),
+                modalCard: document.getElementById('modalCard'),
+                modalContentWrapper: document.getElementById('modalContentWrapper'),
+                modalRankBadge: document.getElementById('modalRankBadge'),
+                swipeOverlayUp: document.getElementById('swipeOverlayUp'),
+                swipeOverlayDown: document.getElementById('swipeOverlayDown'),
+                swipeOverlayRight: document.getElementById('swipeOverlayRight'),
+                swipeOverlayLeft: document.getElementById('swipeOverlayLeft'),
+                btnGesturePrev: document.getElementById('btnGesturePrev'),
+                btnGestureNext: document.getElementById('btnGestureNext'),
+                btnGestureWiki: document.getElementById('btnGestureWiki'),
+                btnGestureAnalyze: document.getElementById('btnGestureAnalyze'),
                 articleSummaryCard: document.getElementById('articleSummaryCard'),
                 articleSummaryTitle: document.getElementById('articleSummaryTitle'),
                 articleSummaryLang: document.getElementById('articleSummaryLang'),
@@ -746,49 +757,259 @@
         });
     }
 
+    // Shared in-memory cache for page summaries to provide zero-latency previews
+    const summaryCache = new Map();
+
+    // Active Target Link Preview State & Gestures Engine
+    const previewState = {
+        links: [],
+        currentIndex: -1,
+        lang: 'en',
+        onDrillDown: null,
+        abortController: null,
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        startTime: 0,
+        gesturesInitialized: false
+    };
+
+    const SWIPE_THRESHOLD = 50; // px minimum drag distance
+    const SWIPE_VELOCITY_THRESHOLD = 0.35; // px/ms velocity for quick flicks
+
+    function hideAllSwipeOverlays() {
+        const el = getElements();
+        if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
+        if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
+        if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
+        if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
+    }
+
+    function resetCardTransform() {
+        const el = getElements();
+        if (el.modalCard) {
+            el.modalCard.style.transform = '';
+        }
+        hideAllSwipeOverlays();
+    }
+
+    function springCardBack() {
+        const el = getElements();
+        if (!el.modalCard) return;
+        el.modalCard.classList.add('is-recovering');
+        resetCardTransform();
+        setTimeout(() => {
+            if (el.modalCard) {
+                el.modalCard.classList.remove('is-recovering');
+            }
+        }, 300);
+    }
+
+    function bounceCard(direction) {
+        const el = getElements();
+        if (!el.modalCard) return;
+        el.modalCard.classList.add('is-recovering');
+        const offset = direction === 'up' ? -22 : 22;
+        el.modalCard.style.transform = `translate3d(0, ${offset}px, 0)`;
+        setTimeout(() => {
+            if (el.modalCard) {
+                el.modalCard.style.transform = '';
+                setTimeout(() => {
+                    if (el.modalCard) el.modalCard.classList.remove('is-recovering');
+                }, 200);
+            }
+        }, 150);
+    }
+
     /**
-     * Loads article summary from Wikipedia and launches the preview Modal overlay
-     * @param {string} title - Target link title 
-     * @param {number} count - Times linked 
-     * @param {string} lang - Language code context
-     * @param {Function} onDrillDown - Callback to recursively analyze this link directly from modal
+     * Swiping right opens the target article in Wikipedia.
      */
-    async function openLinkPreview(title, count, lang = 'en', onDrillDown) {
+    function openCurrentInWiki() {
+        if (!previewState.links || previewState.currentIndex < 0) return;
+        const current = previewState.links[previewState.currentIndex];
+        if (!current) return;
+        const lang = previewState.lang || 'en';
+        const url = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(current.title.replace(/ /g, '_'))}`;
+
+        const el = getElements();
+        if (el.modalCard) {
+            el.modalCard.classList.add('swipe-exit-right');
+            setTimeout(() => {
+                if (el.modalCard) {
+                    el.modalCard.classList.remove('swipe-exit-right');
+                    resetCardTransform();
+                }
+            }, 300);
+        }
+
+        window.open(url, '_blank', 'noopener,noreferrer');
+        if (global.WikiApp && global.WikiApp.utils && global.WikiApp.utils.showToast) {
+            global.WikiApp.utils.showToast(`Opened "${current.title}" on Wikipedia`);
+        }
+    }
+
+    /**
+     * Swiping left analyzes the ongoing link of the preview.
+     */
+    function analyzeCurrentPreviewLink() {
+        if (!previewState.links || previewState.currentIndex < 0) return;
+        const current = previewState.links[previewState.currentIndex];
+        if (!current) return;
+        const targetTitle = current.title;
+        const drillFn = previewState.onDrillDown;
+
+        const el = getElements();
+        if (el.modalCard) {
+            el.modalCard.classList.add('swipe-exit-left');
+        }
+
+        setTimeout(() => {
+            closeLinkPreview();
+            if (typeof drillFn === 'function') {
+                drillFn(targetTitle);
+            }
+        }, 220);
+    }
+
+    /**
+     * Swiping up gives next frequently used link; swiping down gives previous most used link.
+     * @param {number} delta - +1 for next (swipe up), -1 for prev (swipe down)
+     */
+    function navigatePreview(delta) {
+        if (!previewState.links || previewState.links.length === 0) return;
+
+        const nextIndex = previewState.currentIndex + delta;
+        const el = getElements();
+
+        if (delta > 0) {
+            // Swiping UP -> Next frequently used link
+            if (nextIndex >= previewState.links.length) {
+                bounceCard('up');
+                if (global.WikiApp && global.WikiApp.utils && global.WikiApp.utils.showToast) {
+                    global.WikiApp.utils.showToast('Reached the end of ranked links in this view.');
+                }
+                return;
+            }
+            if (el.modalCard) {
+                el.modalCard.classList.add('swipe-exit-up');
+            }
+            setTimeout(() => {
+                if (el.modalCard) el.modalCard.classList.remove('swipe-exit-up');
+                resetCardTransform();
+                previewState.currentIndex = nextIndex;
+                renderCurrentPreview(1);
+            }, 140);
+        } else {
+            // Swiping DOWN -> Previous most used link
+            if (nextIndex < 0) {
+                bounceCard('down');
+                if (global.WikiApp && global.WikiApp.utils && global.WikiApp.utils.showToast) {
+                    global.WikiApp.utils.showToast('Already at the #1 most frequently used link.');
+                }
+                return;
+            }
+            if (el.modalCard) {
+                el.modalCard.classList.add('swipe-exit-down');
+            }
+            setTimeout(() => {
+                if (el.modalCard) el.modalCard.classList.remove('swipe-exit-down');
+                resetCardTransform();
+                previewState.currentIndex = nextIndex;
+                renderCurrentPreview(-1);
+            }, 140);
+        }
+    }
+
+    /**
+     * Renders the current link item in previewState and triggers MediaWiki extract fetch
+     * @param {number} [direction] - 1 (next / slide in bottom), -1 (prev / slide in top), 0 (none)
+     */
+    async function renderCurrentPreview(direction = 0) {
         const el = getElements();
         if (!el.previewModal) return;
 
-        el.previewModal.classList.remove('hidden');
-        if (el.modalTitle) el.modalTitle.textContent = title;
-        if (el.modalFreqBadge) el.modalFreqBadge.textContent = `${count} mention${count > 1 ? 's' : ''} in source article`;
-        if (el.modalWikiUrl) el.modalWikiUrl.href = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        const item = previewState.links[previewState.currentIndex];
+        if (!item) return;
 
+        const title = item.title;
+        const count = item.count || 1;
+        const total = previewState.links.length;
+        const lang = previewState.lang || 'en';
+
+        // Headers
+        if (el.modalTitle) el.modalTitle.textContent = title;
+        if (el.modalRankBadge) {
+            el.modalRankBadge.textContent = `Rank #${previewState.currentIndex + 1} of ${total}`;
+        }
+        if (el.modalFreqBadge) {
+            el.modalFreqBadge.textContent = `${count} mention${count > 1 ? 's' : ''} in source article`;
+        }
+        if (el.modalWikiUrl) {
+            el.modalWikiUrl.href = `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        }
+
+        // Re-bind Drill button
         if (el.modalDrillBtn) {
-            // Replace click listener cleanly
             const newDrillBtn = el.modalDrillBtn.cloneNode(true);
             el.modalDrillBtn.parentNode.replaceChild(newDrillBtn, el.modalDrillBtn);
             cachedElements.modalDrillBtn = newDrillBtn;
             newDrillBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 closeLinkPreview();
-                if (typeof onDrillDown === 'function') {
-                    onDrillDown(title);
+                if (typeof previewState.onDrillDown === 'function') {
+                    previewState.onDrillDown(title);
                 }
             });
         }
 
+        // Apply slide-in animation to modalContentWrapper if direction is specified
+        if (direction !== 0 && el.modalContentWrapper) {
+            el.modalContentWrapper.classList.remove('animate-slide-in-bottom', 'animate-slide-in-top');
+            void el.modalContentWrapper.offsetWidth; // trigger reflow
+            el.modalContentWrapper.classList.add(direction > 0 ? 'animate-slide-in-bottom' : 'animate-slide-in-top');
+        }
+
+        // Reset image and body states
+        if (el.modalImg) el.modalImg.src = '';
+        if (el.modalImgContainer) el.modalImgContainer.classList.add('hidden');
+
+        // Check in-memory summary cache first
+        const cacheKey = `${lang}:${title.toLowerCase()}`;
+        if (summaryCache.has(cacheKey)) {
+            const cached = summaryCache.get(cacheKey);
+            if (el.modalLoading) el.modalLoading.classList.add('hidden');
+            if (el.modalBody) el.modalBody.classList.remove('hidden');
+            if (el.modalExtract) {
+                el.modalExtract.textContent = cached.extract || cached.description || 'No extract summary available for this topic.';
+            }
+            if (cached.thumbnail && cached.thumbnail.source && el.modalImg && el.modalImgContainer) {
+                el.modalImg.src = cached.thumbnail.source;
+                el.modalImgContainer.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // Otherwise show loading spinner and fetch from MediaWiki API
         if (el.modalLoading) el.modalLoading.classList.remove('hidden');
         if (el.modalBody) el.modalBody.classList.add('hidden');
-        if (el.modalImgContainer) el.modalImgContainer.classList.add('hidden');
-        if (el.modalImg) el.modalImg.src = '';
+
+        // Cancel previous pending fetch
+        if (previewState.abortController) {
+            previewState.abortController.abort();
+        }
+        previewState.abortController = new AbortController();
+        const signal = previewState.abortController.signal;
 
         try {
-            const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`);
+            const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`, { signal });
             if (res.ok) {
                 const data = await res.json();
+                summaryCache.set(cacheKey, data);
                 if (el.modalExtract) {
                     el.modalExtract.textContent = data.extract || data.description || 'No extract summary available for this topic.';
                 }
-
                 if (data.thumbnail && data.thumbnail.source && el.modalImg && el.modalImgContainer) {
                     el.modalImg.src = data.thumbnail.source;
                     el.modalImgContainer.classList.remove('hidden');
@@ -796,12 +1017,239 @@
             } else {
                 if (el.modalExtract) el.modalExtract.textContent = 'Could not fetch extract summary for this article.';
             }
-        } catch (e) {
+        } catch (err) {
+            if (err.name === 'AbortError') return; // Cancelled by user swiping to another link
             if (el.modalExtract) el.modalExtract.textContent = 'Failed to load Wikipedia summary preview.';
         } finally {
-            if (el.modalLoading) el.modalLoading.classList.add('hidden');
-            if (el.modalBody) el.modalBody.classList.remove('hidden');
+            if (!signal.aborted) {
+                if (el.modalLoading) el.modalLoading.classList.add('hidden');
+                if (el.modalBody) el.modalBody.classList.remove('hidden');
+            }
         }
+    }
+
+    /**
+     * Initializes unified Pointer & Touch swipe gesture listeners on the modal card
+     */
+    function setupModalGestures() {
+        if (previewState.gesturesInitialized) return;
+        previewState.gesturesInitialized = true;
+
+        const el = getElements();
+        if (!el.modalCard) return;
+
+        // Pointerdown
+        el.modalCard.addEventListener('pointerdown', (e) => {
+            // Only primary button (left-click or touch)
+            if (e.button !== 0 && e.pointerType === 'mouse') return;
+            // Ignore if clicking interactive buttons or links directly
+            if (e.target.closest('button, a, input, select, textarea')) return;
+
+            previewState.isDragging = true;
+            previewState.startX = e.clientX;
+            previewState.startY = e.clientY;
+            previewState.currentX = e.clientX;
+            previewState.currentY = e.clientY;
+            previewState.startTime = Date.now();
+
+            el.modalCard.classList.add('is-dragging');
+            el.modalCard.classList.remove('is-recovering');
+            try {
+                el.modalCard.setPointerCapture(e.pointerId);
+            } catch (err) {}
+        });
+
+        // Pointermove
+        el.modalCard.addEventListener('pointermove', (e) => {
+            if (!previewState.isDragging) return;
+
+            previewState.currentX = e.clientX;
+            previewState.currentY = e.clientY;
+
+            const dx = previewState.currentX - previewState.startX;
+            const dy = previewState.currentY - previewState.startY;
+
+            // Damped translation for natural tactile resistance
+            const dampedX = dx * 0.72;
+            const dampedY = dy * 0.72;
+            const rot = (dx / 350) * 10;
+
+            el.modalCard.style.transform = `translate3d(${dampedX}px, ${dampedY}px, 0) rotate(${rot}deg)`;
+
+            // Directional overlay feedback
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+
+            if (absY > absX) {
+                if (dy < -15) {
+                    const op = Math.min(1, (-dy - 15) / 50);
+                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = String(op);
+                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
+                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
+                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
+                } else if (dy > 15) {
+                    const op = Math.min(1, (dy - 15) / 50);
+                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = String(op);
+                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
+                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
+                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
+                } else {
+                    hideAllSwipeOverlays();
+                }
+            } else {
+                if (dx > 15) {
+                    const op = Math.min(1, (dx - 15) / 50);
+                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = String(op);
+                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
+                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
+                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
+                } else if (dx < -15) {
+                    const op = Math.min(1, (-dx - 15) / 50);
+                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = String(op);
+                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
+                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
+                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
+                } else {
+                    hideAllSwipeOverlays();
+                }
+            }
+        });
+
+        // Pointerup & Pointercancel
+        const endPointerDrag = (e) => {
+            if (!previewState.isDragging) return;
+            previewState.isDragging = false;
+            el.modalCard.classList.remove('is-dragging');
+            hideAllSwipeOverlays();
+
+            try {
+                if (e.pointerId && el.modalCard.hasPointerCapture && el.modalCard.hasPointerCapture(e.pointerId)) {
+                    el.modalCard.releasePointerCapture(e.pointerId);
+                }
+            } catch (err) {}
+
+            const dx = previewState.currentX - previewState.startX;
+            const dy = previewState.currentY - previewState.startY;
+            const dt = Math.max(1, Date.now() - previewState.startTime);
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+            const vx = absX / dt;
+            const vy = absY / dt;
+
+            const isVerticalSwipe = absY >= absX && (absY >= SWIPE_THRESHOLD || (absY >= 30 && vy >= SWIPE_VELOCITY_THRESHOLD));
+            const isHorizontalSwipe = absX > absY && (absX >= SWIPE_THRESHOLD || (absX >= 30 && vx >= SWIPE_VELOCITY_THRESHOLD));
+
+            if (isVerticalSwipe) {
+                if (dy < 0) {
+                    // Swiped UP -> Next frequently used link
+                    navigatePreview(1);
+                } else {
+                    // Swiped DOWN -> Previous most used target link
+                    navigatePreview(-1);
+                }
+            } else if (isHorizontalSwipe) {
+                if (dx > 0) {
+                    // Swiped RIGHT -> Open article in Wikipedia
+                    openCurrentInWiki();
+                } else {
+                    // Swiped LEFT -> Analyze ongoing link
+                    analyzeCurrentPreviewLink();
+                }
+            } else {
+                springCardBack();
+            }
+        };
+
+        el.modalCard.addEventListener('pointerup', endPointerDrag);
+        el.modalCard.addEventListener('pointercancel', endPointerDrag);
+
+        // Click handlers for gesture helper buttons
+        if (el.btnGesturePrev) {
+            el.btnGesturePrev.addEventListener('click', (e) => {
+                e.preventDefault();
+                navigatePreview(-1);
+            });
+        }
+        if (el.btnGestureNext) {
+            el.btnGestureNext.addEventListener('click', (e) => {
+                e.preventDefault();
+                navigatePreview(1);
+            });
+        }
+        if (el.btnGestureWiki) {
+            el.btnGestureWiki.addEventListener('click', (e) => {
+                e.preventDefault();
+                openCurrentInWiki();
+            });
+        }
+        if (el.btnGestureAnalyze) {
+            el.btnGestureAnalyze.addEventListener('click', (e) => {
+                e.preventDefault();
+                analyzeCurrentPreviewLink();
+            });
+        }
+
+        // Global Keyboard navigation for the preview modal
+        document.addEventListener('keydown', (e) => {
+            const el = getElements();
+            if (!el.previewModal || el.previewModal.classList.contains('hidden')) return;
+            if (e.target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigatePreview(1);
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigatePreview(-1);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                openCurrentInWiki();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                analyzeCurrentPreviewLink();
+            }
+        });
+    }
+
+    /**
+     * Loads article summary from Wikipedia and launches the preview Modal overlay with swipe gestures
+     * @param {string} title - Target link title 
+     * @param {number} count - Times linked 
+     * @param {string} lang - Language code context
+     * @param {Function} onDrillDown - Callback to recursively analyze this link directly from modal
+     * @param {Object} [context] - Optional navigation context { links: Array, currentIndex: number }
+     */
+    async function openLinkPreview(title, count, lang = 'en', onDrillDown, context = {}) {
+        const el = getElements();
+        if (!el.previewModal) return;
+
+        setupModalGestures();
+
+        previewState.lang = lang || 'en';
+        previewState.onDrillDown = onDrillDown;
+
+        // Resolve link list context
+        if (context && Array.isArray(context.links) && context.links.length > 0) {
+            previewState.links = context.links;
+            if (typeof context.currentIndex === 'number' && context.currentIndex >= 0 && context.currentIndex < context.links.length) {
+                previewState.currentIndex = context.currentIndex;
+            } else {
+                const idx = previewState.links.findIndex(l => l.title.toLowerCase() === (title || '').toLowerCase());
+                previewState.currentIndex = idx >= 0 ? idx : 0;
+            }
+        } else {
+            previewState.links = [{
+                title: title || '',
+                count: count || 1,
+                url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent((title || '').replace(/ /g, '_'))}`
+            }];
+            previewState.currentIndex = 0;
+        }
+
+        resetCardTransform();
+        el.previewModal.classList.remove('hidden');
+
+        await renderCurrentPreview(0);
     }
 
     /**
@@ -809,13 +1257,19 @@
      */
     function closeLinkPreview() {
         const el = getElements();
+        if (previewState.abortController) {
+            previewState.abortController.abort();
+            previewState.abortController = null;
+        }
         if (el.previewModal) el.previewModal.classList.add('hidden');
         if (el.modalImg) el.modalImg.src = '';
         if (el.modalImgContainer) el.modalImgContainer.classList.add('hidden');
+        if (el.modalCard) {
+            el.modalCard.classList.remove('swipe-exit-left', 'swipe-exit-right', 'swipe-exit-up', 'swipe-exit-down', 'is-dragging', 'is-recovering');
+        }
+        resetCardTransform();
+        previewState.isDragging = false;
     }
-
-    // In-memory cache for page summaries
-    const summaryCache = new Map();
 
     /**
      * Fetches and renders the Wikipedia Article Summary Preview of the current search/drill query
@@ -1097,6 +1551,9 @@
         renderNetworkView: renderNetworkView,
         openLinkPreview: openLinkPreview,
         closeLinkPreview: closeLinkPreview,
+        navigatePreview: navigatePreview,
+        openCurrentInWiki: openCurrentInWiki,
+        analyzeCurrentPreviewLink: analyzeCurrentPreviewLink,
         updateHistoryBadge: updateHistoryBadge,
         renderHistoryList: renderHistoryList,
         openHistoryModal: openHistoryModal,
