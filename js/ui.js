@@ -59,7 +59,6 @@
                 articleSummaryLoading: document.getElementById('articleSummaryLoading'),
                 articleSummaryBody: document.getElementById('articleSummaryBody'),
                 articleSummaryExtract: document.getElementById('articleSummaryExtract'),
-                articleSummaryToggleBtn: document.getElementById('articleSummaryToggleBtn'),
                 articleSummaryImg: document.getElementById('articleSummaryImg'),
                 articleSummaryImgContainer: document.getElementById('articleSummaryImgContainer'),
                 modalTitle: document.getElementById('modalTitle'),
@@ -769,6 +768,8 @@
         currentX: 0,
         currentY: 0,
         startTime: 0,
+        allowVerticalSwipe: true,
+        touchActive: false,
         gesturesInitialized: false
     };
 
@@ -777,10 +778,10 @@
 
     function hideAllSwipeOverlays() {
         const el = getElements();
-        if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
-        if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
-        if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
-        if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
+        [el.swipeOverlayUp, el.swipeOverlayDown, el.swipeOverlayRight, el.swipeOverlayLeft]
+            .forEach(overlay => {
+                if (overlay) overlay.style.opacity = '0';
+            });
     }
 
     function resetCardTransform() {
@@ -1067,43 +1068,17 @@
 
             el.modalCard.style.transform = `translate3d(${dampedX}px, ${dampedY}px, 0) rotate(${rot}deg)`;
 
-            // Directional overlay feedback
             const absX = Math.abs(dx);
             const absY = Math.abs(dy);
-
-            if (absY > absX) {
-                if (dy < -15) {
-                    const op = Math.min(1, (-dy - 15) / 50);
-                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = String(op);
-                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
-                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
-                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
-                } else if (dy > 15) {
-                    const op = Math.min(1, (dy - 15) / 50);
-                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = String(op);
-                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
-                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
-                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
-                } else {
-                    hideAllSwipeOverlays();
-                }
-            } else {
-                if (dx > 15) {
-                    const op = Math.min(1, (dx - 15) / 50);
-                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = String(op);
-                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = '0';
-                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
-                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
-                } else if (dx < -15) {
-                    const op = Math.min(1, (-dx - 15) / 50);
-                    if (el.swipeOverlayLeft) el.swipeOverlayLeft.style.opacity = String(op);
-                    if (el.swipeOverlayRight) el.swipeOverlayRight.style.opacity = '0';
-                    if (el.swipeOverlayUp) el.swipeOverlayUp.style.opacity = '0';
-                    if (el.swipeOverlayDown) el.swipeOverlayDown.style.opacity = '0';
-                } else {
-                    hideAllSwipeOverlays();
-                }
+            hideAllSwipeOverlays();
+            if (absY >= absX && absY > 15) {
+                const overlay = dy < 0 ? el.swipeOverlayUp : el.swipeOverlayDown;
+                if (overlay) overlay.style.opacity = String(Math.min(1, (absY - 15) / 70));
+            } else if (absX > 15) {
+                const overlay = dx < 0 ? el.swipeOverlayLeft : el.swipeOverlayRight;
+                if (overlay) overlay.style.opacity = String(Math.min(1, (absX - 15) / 70));
             }
+
         };
 
         const endDrag = () => {
@@ -1111,7 +1086,6 @@
             previewState.isDragging = false;
             el.modalCard.classList.remove('is-dragging');
             hideAllSwipeOverlays();
-
             const dx = previewState.currentX - previewState.startX;
             const dy = previewState.currentY - previewState.startY;
             const dt = Math.max(1, Date.now() - previewState.startTime);
@@ -1120,7 +1094,8 @@
             const vx = absX / dt;
             const vy = absY / dt;
 
-            const isVerticalSwipe = absY >= absX && (absY >= SWIPE_THRESHOLD || (absY >= 30 && vy >= SWIPE_VELOCITY_THRESHOLD));
+            const isVerticalSwipe = previewState.allowVerticalSwipe &&
+                absY >= absX && (absY >= SWIPE_THRESHOLD || (absY >= 30 && vy >= SWIPE_VELOCITY_THRESHOLD));
             const isHorizontalSwipe = absX > absY && (absX >= SWIPE_THRESHOLD || (absX >= 30 && vx >= SWIPE_VELOCITY_THRESHOLD));
 
             if (isVerticalSwipe) {
@@ -1164,16 +1139,46 @@
         el.modalCard.addEventListener('touchstart', (e) => {
             const point = getTouchPoint(e);
             if (!point || (e.target && e.target.closest('button, a, input, select, textarea'))) return;
-            startDrag(point.clientX, point.clientY);
+            previewState.touchActive = true;
+            previewState.isDragging = false;
+            previewState.startX = point.clientX;
+            previewState.startY = point.clientY;
+            previewState.currentX = point.clientX;
+            previewState.currentY = point.clientY;
+            previewState.startTime = Date.now();
         }, { passive: true });
         el.modalCard.addEventListener('touchmove', (e) => {
             const point = getTouchPoint(e);
-            if (!point) return;
+            if (!point || !previewState.touchActive) return;
+            const dx = point.clientX - previewState.startX;
+            const dy = point.clientY - previewState.startY;
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+
+            if (!previewState.isDragging && Math.max(absX, absY) < 10) return;
+
+            const content = el.modalContentWrapper;
+            const atTop = !content || content.scrollTop <= 1;
+            const atBottom = !content || content.scrollTop + content.clientHeight >= content.scrollHeight - 1;
+            const isHorizontal = absX > absY;
+            const isAllowedVertical = (dy < 0 && atBottom) || (dy > 0 && atTop);
+
+            if (!isHorizontal && !isAllowedVertical) return;
+            if (!previewState.isDragging) {
+                previewState.allowVerticalSwipe = isAllowedVertical;
+                startDrag(previewState.startX, previewState.startY);
+            }
             e.preventDefault();
             moveDrag(point.clientX, point.clientY);
         }, { passive: false });
-        el.modalCard.addEventListener('touchend', endDrag, { passive: true });
-        el.modalCard.addEventListener('touchcancel', endDrag, { passive: true });
+        el.modalCard.addEventListener('touchend', () => {
+            if (previewState.isDragging) endDrag();
+            previewState.touchActive = false;
+        }, { passive: true });
+        el.modalCard.addEventListener('touchcancel', () => {
+            if (previewState.isDragging) endDrag();
+            previewState.touchActive = false;
+        }, { passive: true });
 
         // Global Keyboard navigation for the preview modal
         document.addEventListener('keydown', (e) => {
@@ -1287,11 +1292,6 @@
         if (el.articleSummaryLoading) el.articleSummaryLoading.classList.remove('hidden');
         if (el.articleSummaryExtract) {
             el.articleSummaryExtract.textContent = '';
-            el.articleSummaryExtract.classList.add('line-clamp-3');
-        }
-        if (el.articleSummaryToggleBtn) {
-            el.articleSummaryToggleBtn.classList.add('hidden');
-            el.articleSummaryToggleBtn.innerHTML = `<span>Show more</span> <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>`;
         }
 
         const cacheKey = `${lang}:${cleanTitle.toLowerCase()}`;
@@ -1339,21 +1339,6 @@
             el.articleSummaryImgContainer.classList.remove('hidden');
         }
 
-        // Show Expand/Collapse toggle if text is long enough (> 160 characters)
-        if (extractText.length > 160 && el.articleSummaryToggleBtn && el.articleSummaryExtract) {
-            el.articleSummaryToggleBtn.classList.remove('hidden');
-            el.articleSummaryToggleBtn.onclick = (e) => {
-                e.preventDefault();
-                const isClamped = el.articleSummaryExtract.classList.contains('line-clamp-3');
-                if (isClamped) {
-                    el.articleSummaryExtract.classList.remove('line-clamp-3');
-                    el.articleSummaryToggleBtn.innerHTML = `<span>Show less</span> <i class="fa-solid fa-chevron-up text-[9px] ml-0.5"></i>`;
-                } else {
-                    el.articleSummaryExtract.classList.add('line-clamp-3');
-                    el.articleSummaryToggleBtn.innerHTML = `<span>Show more</span> <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>`;
-                }
-            };
-        }
     }
 
     /**
@@ -1553,5 +1538,3 @@
         module.exports = ui;
     }
 })(typeof window !== 'undefined' ? window : globalThis);
-
-

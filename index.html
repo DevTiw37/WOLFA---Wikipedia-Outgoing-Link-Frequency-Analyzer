@@ -187,8 +187,8 @@
             <div id="articleSummaryCard" class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm transition-all">
                 <div class="flex flex-col sm:flex-row gap-4 items-start">
                     <!-- Thumbnail Container -->
-                    <div id="articleSummaryImgContainer" class="hidden shrink-0 w-full sm:w-32 h-32 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
-                        <img id="articleSummaryImg" src="" alt="Thumbnail" class="w-full h-full object-cover">
+                    <div id="articleSummaryImgContainer" class="hidden shrink-0 w-full sm:w-40 h-48 sm:h-40 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
+                        <img id="articleSummaryImg" src="" alt="Thumbnail" class="w-full h-full object-contain">
                     </div>
                     
                     <!-- Text Content -->
@@ -213,12 +213,9 @@
                             <span>Fetching article summary...</span>
                         </div>
                         <div id="articleSummaryBody" class="space-y-1">
-                            <p id="articleSummaryExtract" class="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                            <p id="articleSummaryExtract" class="text-sm text-slate-600 leading-6">
                                 Summary extract text...
                             </p>
-                            <button type="button" id="articleSummaryToggleBtn" class="hidden text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer">
-                                <span>Show more</span> <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -406,28 +403,28 @@
 
     <!-- Wikipedia Target Preview Modal with Swipe Gestures -->
     <div id="previewModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-        <div id="modalCard" class="relative bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all cursor-grab active:cursor-grabbing touch-none will-change-transform">
-            
-            <!-- Directional Swipe Feedback Overlays -->
-            <div id="swipeOverlayUp" class="swipe-overlay pointer-events-none absolute inset-x-0 top-0 py-3 bg-gradient-to-b from-blue-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
-                <i class="fa-solid fa-arrow-up text-lg animate-bounce"></i>
-                <span class="text-xs font-bold mt-1 tracking-wide">Next Frequently Used Link</span>
+        <div id="modalCard" class="relative bg-white rounded-2xl max-w-lg w-full max-h-[90vh] shadow-2xl border border-slate-200 overflow-hidden flex flex-col transform transition-all cursor-grab active:cursor-grabbing will-change-transform">
+
+            <!-- Directional color feedback while swiping -->
+            <div id="swipeOverlayUp" class="swipe-overlay pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-blue-600/75 to-transparent opacity-0 transition-opacity duration-150 z-30 flex flex-col items-center justify-start pt-3 text-white drop-shadow-md">
+                <i class="fa-solid fa-arrow-up text-lg"></i>
+                <span class="text-[11px] font-bold mt-1">Next link</span>
             </div>
-            <div id="swipeOverlayDown" class="swipe-overlay pointer-events-none absolute inset-x-0 bottom-0 py-3 bg-gradient-to-t from-indigo-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
-                <span class="text-xs font-bold mb-1 tracking-wide">Previous Most Used Link</span>
-                <i class="fa-solid fa-arrow-down text-lg animate-bounce"></i>
+            <div id="swipeOverlayDown" class="swipe-overlay pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-indigo-600/75 to-transparent opacity-0 transition-opacity duration-150 z-30 flex flex-col items-center justify-end pb-3 text-white drop-shadow-md">
+                <span class="text-[11px] font-bold mb-1">Previous link</span>
+                <i class="fa-solid fa-arrow-down text-lg"></i>
             </div>
-            <div id="swipeOverlayRight" class="swipe-overlay pointer-events-none absolute inset-y-0 right-0 px-5 bg-gradient-to-l from-emerald-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
-                <i class="fa-solid fa-arrow-up-right-from-square text-xl mb-1"></i>
-                <span class="text-xs font-bold tracking-wide">Open in Wikipedia</span>
+            <div id="swipeOverlayRight" class="swipe-overlay pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-emerald-600/75 to-transparent opacity-0 transition-opacity duration-150 z-30 flex flex-col items-center justify-center text-white drop-shadow-md">
+                <i class="fa-solid fa-arrow-right text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Open Wikipedia</span>
             </div>
-            <div id="swipeOverlayLeft" class="swipe-overlay pointer-events-none absolute inset-y-0 left-0 px-5 bg-gradient-to-r from-amber-600/90 to-transparent text-white flex flex-col items-center justify-center opacity-0 transition-opacity duration-150 z-20">
-                <i class="fa-solid fa-bolt text-xl mb-1 text-amber-200"></i>
-                <span class="text-xs font-bold tracking-wide">Analyze Outgoing Links</span>
+            <div id="swipeOverlayLeft" class="swipe-overlay pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-amber-600/75 to-transparent opacity-0 transition-opacity duration-150 z-30 flex flex-col items-center justify-center text-white drop-shadow-md">
+                <i class="fa-solid fa-arrow-left text-lg"></i>
+                <span class="text-[10px] font-bold mt-1">Analyze links</span>
             </div>
 
             <!-- Modal Content Container -->
-            <div id="modalContentWrapper" class="p-6 space-y-4 transition-transform duration-200">
+            <div id="modalContentWrapper" class="flex-1 min-h-0 p-5 sm:p-6 space-y-4 transition-transform duration-200 overflow-y-auto">
                 <div class="flex items-start justify-between gap-2">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -448,14 +445,14 @@
 
                 <div id="modalBody" class="hidden space-y-3">
                     <div id="modalImgContainer" class="hidden">
-                        <img id="modalImg" class="w-full h-44 object-cover rounded-xl border border-slate-100" src="" alt="Thumbnail" draggable="false">
+                        <img id="modalImg" class="w-full h-56 sm:h-64 object-contain rounded-xl border border-slate-100 bg-slate-100" src="" alt="Thumbnail" draggable="false">
                     </div>
-                    <p id="modalExtract" class="text-xs leading-relaxed text-slate-600 line-clamp-4">Article extract text...</p>
+                    <p id="modalExtract" class="text-sm leading-6 text-slate-600">Article extract text...</p>
                 </div>
             </div>
 
             <!-- Footer / Action Area -->
-            <div class="bg-slate-50 px-6 py-3 border-t border-slate-100 space-y-2.5">
+            <div class="shrink-0 bg-slate-50 px-5 sm:px-6 py-3 border-t border-slate-100 space-y-2.5">
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <span id="modalFreqBadge" class="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">
                         0 mentions in article

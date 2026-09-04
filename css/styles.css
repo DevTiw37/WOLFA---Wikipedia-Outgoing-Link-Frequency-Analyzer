@@ -22,25 +22,16 @@ body {
     background: #94a3b8;
 }
 
-.line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.line-clamp-4 {
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
 /* Swipe Gesture Styles */
 #modalCard {
-    touch-action: none;
+    touch-action: pan-y;
     user-select: none;
     -webkit-user-select: none;
+}
+
+#modalContentWrapper {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 #modalCard.is-dragging {
@@ -50,6 +41,10 @@ body {
 
 #modalCard.is-recovering {
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease !important;
+}
+
+.swipe-overlay {
+    backdrop-filter: blur(1px);
 }
 
 /* Slide Transition Animations for Preview Transitions */
@@ -108,8 +103,34 @@ body {
     opacity: 0 !important;
 }
 
-/* Directional feedback glow effect */
-.swipe-overlay {
-    backdrop-filter: blur(2px);
-}
+@media (max-width: 640px) {
+    #previewModal {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 0.75rem;
+    }
 
+    #modalCard {
+        max-height: 90vh;
+        margin: auto 0;
+    }
+
+    #modalContentWrapper {
+        padding: 1rem;
+    }
+
+    #modalTitle {
+        font-size: 1.25rem;
+        line-height: 1.5rem;
+    }
+
+    #modalExtract,
+    #articleSummaryExtract {
+        font-size: 0.9375rem;
+        line-height: 1.6;
+    }
+
+    #articleSummaryCard {
+        padding: 1rem;
+    }
+}
