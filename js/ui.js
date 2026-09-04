@@ -51,10 +51,6 @@
                 swipeOverlayDown: document.getElementById('swipeOverlayDown'),
                 swipeOverlayRight: document.getElementById('swipeOverlayRight'),
                 swipeOverlayLeft: document.getElementById('swipeOverlayLeft'),
-                btnGesturePrev: document.getElementById('btnGesturePrev'),
-                btnGestureNext: document.getElementById('btnGestureNext'),
-                btnGestureWiki: document.getElementById('btnGestureWiki'),
-                btnGestureAnalyze: document.getElementById('btnGestureAnalyze'),
                 articleSummaryCard: document.getElementById('articleSummaryCard'),
                 articleSummaryTitle: document.getElementById('articleSummaryTitle'),
                 articleSummaryLang: document.getElementById('articleSummaryLang'),
@@ -1033,38 +1029,33 @@
      */
     function setupModalGestures() {
         if (previewState.gesturesInitialized) return;
-        previewState.gesturesInitialized = true;
 
         const el = getElements();
         if (!el.modalCard) return;
+        previewState.gesturesInitialized = true;
 
-        // Pointerdown
-        el.modalCard.addEventListener('pointerdown', (e) => {
-            // Only primary button (left-click or touch)
-            if (e.button !== 0 && e.pointerType === 'mouse') return;
-            // Ignore if clicking interactive buttons or links directly
-            if (e.target.closest('button, a, input, select, textarea')) return;
+        const getTouchPoint = (e) => {
+            const touch = e.touches[0] || e.changedTouches[0];
+            return touch ? { clientX: touch.clientX, clientY: touch.clientY } : null;
+        };
 
+        const startDrag = (clientX, clientY) => {
             previewState.isDragging = true;
-            previewState.startX = e.clientX;
-            previewState.startY = e.clientY;
-            previewState.currentX = e.clientX;
-            previewState.currentY = e.clientY;
+            previewState.startX = clientX;
+            previewState.startY = clientY;
+            previewState.currentX = clientX;
+            previewState.currentY = clientY;
             previewState.startTime = Date.now();
 
             el.modalCard.classList.add('is-dragging');
             el.modalCard.classList.remove('is-recovering');
-            try {
-                el.modalCard.setPointerCapture(e.pointerId);
-            } catch (err) {}
-        });
+        };
 
-        // Pointermove
-        el.modalCard.addEventListener('pointermove', (e) => {
+        const moveDrag = (clientX, clientY) => {
             if (!previewState.isDragging) return;
 
-            previewState.currentX = e.clientX;
-            previewState.currentY = e.clientY;
+            previewState.currentX = clientX;
+            previewState.currentY = clientY;
 
             const dx = previewState.currentX - previewState.startX;
             const dy = previewState.currentY - previewState.startY;
@@ -1113,20 +1104,13 @@
                     hideAllSwipeOverlays();
                 }
             }
-        });
+        };
 
-        // Pointerup & Pointercancel
-        const endPointerDrag = (e) => {
+        const endDrag = () => {
             if (!previewState.isDragging) return;
             previewState.isDragging = false;
             el.modalCard.classList.remove('is-dragging');
             hideAllSwipeOverlays();
-
-            try {
-                if (e.pointerId && el.modalCard.hasPointerCapture && el.modalCard.hasPointerCapture(e.pointerId)) {
-                    el.modalCard.releasePointerCapture(e.pointerId);
-                }
-            } catch (err) {}
 
             const dx = previewState.currentX - previewState.startX;
             const dy = previewState.currentY - previewState.startY;
@@ -1160,34 +1144,36 @@
             }
         };
 
-        el.modalCard.addEventListener('pointerup', endPointerDrag);
-        el.modalCard.addEventListener('pointercancel', endPointerDrag);
-
-        // Click handlers for gesture helper buttons
-        if (el.btnGesturePrev) {
-            el.btnGesturePrev.addEventListener('click', (e) => {
-                e.preventDefault();
-                navigatePreview(-1);
+        // Use native touch events for mobile reliability and Pointer Events for
+        // mouse input, avoiding duplicate gesture processing on hybrid devices.
+        if (window.PointerEvent) {
+            el.modalCard.addEventListener('pointerdown', (e) => {
+                if (e.pointerType !== 'mouse' || e.button !== 0) return;
+                if (e.target.closest('button, a, input, select, textarea')) return;
+                startDrag(e.clientX, e.clientY);
+                try {
+                    el.modalCard.setPointerCapture(e.pointerId);
+                } catch (err) {
+                    // Pointer capture is optional; the gesture still works without it.
+                }
             });
+            el.modalCard.addEventListener('pointermove', (e) => moveDrag(e.clientX, e.clientY));
+            el.modalCard.addEventListener('pointerup', endDrag);
+            el.modalCard.addEventListener('pointercancel', endDrag);
         }
-        if (el.btnGestureNext) {
-            el.btnGestureNext.addEventListener('click', (e) => {
-                e.preventDefault();
-                navigatePreview(1);
-            });
-        }
-        if (el.btnGestureWiki) {
-            el.btnGestureWiki.addEventListener('click', (e) => {
-                e.preventDefault();
-                openCurrentInWiki();
-            });
-        }
-        if (el.btnGestureAnalyze) {
-            el.btnGestureAnalyze.addEventListener('click', (e) => {
-                e.preventDefault();
-                analyzeCurrentPreviewLink();
-            });
-        }
+        el.modalCard.addEventListener('touchstart', (e) => {
+            const point = getTouchPoint(e);
+            if (!point || (e.target && e.target.closest('button, a, input, select, textarea'))) return;
+            startDrag(point.clientX, point.clientY);
+        }, { passive: true });
+        el.modalCard.addEventListener('touchmove', (e) => {
+            const point = getTouchPoint(e);
+            if (!point) return;
+            e.preventDefault();
+            moveDrag(point.clientX, point.clientY);
+        }, { passive: false });
+        el.modalCard.addEventListener('touchend', endDrag, { passive: true });
+        el.modalCard.addEventListener('touchcancel', endDrag, { passive: true });
 
         // Global Keyboard navigation for the preview modal
         document.addEventListener('keydown', (e) => {
@@ -1567,7 +1553,5 @@
         module.exports = ui;
     }
 })(typeof window !== 'undefined' ? window : globalThis);
-
-
 
 
