@@ -39,17 +39,28 @@ body {
 /* Swipe Gesture Styles */
 #modalCard {
     touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
 }
 
 #modalCard.is-dragging {
     cursor: grabbing !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
     transition: none !important;
 }
 
 #modalCard.is-recovering {
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.25s ease !important;
+}
+
+/* Ensure mobile taps on buttons and links register instantly without delay or being blocked */
+#modalCard button,
+#modalCard a,
+.gesture-btn {
+    touch-action: manipulation !important;
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+    -webkit-tap-highlight-color: rgba(37, 99, 235, 0.2) !important;
+    cursor: pointer !important;
 }
 
 /* Slide Transition Animations for Preview Transitions */
